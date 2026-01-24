@@ -2,12 +2,12 @@
 import { useState } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Define what a "Game Recommendation" looks like
 interface GameRec {
   title: string;
   genre: string;
   description: string;
   vibeScore: number;
+  whyForYou: string;
 }
 
 export default function GameBot() {
@@ -18,13 +18,13 @@ export default function GameBot() {
   const getRecommendations = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    // Clear old results so the new ones can animate in fresh
+    setRecommendations([]);
 
     try {
       const genAI = new GoogleGenerativeAI(
         process.env.NEXT_PUBLIC_GEMINI_API_KEY || "",
       );
-
-      // Specialist Fix 1: Configure the model for JSON output directly
       const model = genAI.getGenerativeModel({
         model: "gemini-3-flash-preview",
         generationConfig: {
@@ -32,136 +32,158 @@ export default function GameBot() {
         },
       });
 
-      const prompt = `Suggest 5 video games based on this: "${input}". 
-      Return an array of objects with keys: "title", "genre", "description", "vibeScore".`;
+      const prompt = `
+        User Input: "${input}"
+        Suggest exactly 5 video games. For each, provide:
+        1. "title"
+        2. "genre"
+        3. "description" (Short summary)
+        4. "vibeScore" (1-10)
+        5. "whyForYou" (Personalized sentence explaining why this matches "${input}")
+        Return ONLY a JSON array.
+      `;
 
       const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-
-      console.log("Raw AI Response:", text); // Check this in F12 if it fails!
-
-      // Specialist Fix 2: Bulletproof Parsing
-      if (!text || text.trim().length === 0) {
-        throw new Error("AI returned an empty response.");
-      }
-
-      // If responseMimeType is set to application/json,
-      // Gemini usually skips the ```json wrapper entirely.
+      const text = result.response.text();
       const data = JSON.parse(text);
       setRecommendations(data);
     } catch (error) {
-      console.error("Detailed Error:", error);
-      alert(
-        "The Gaming Oracle is confused. Check the console (F12) for details!",
-      );
+      console.error("Error:", error);
+      alert("The Scout is offline. Check your console!");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <main className="min-h-screen bg-slate-900 text-slate-100 p-8 font-sans">
+    <main className="min-h-screen bg-slate-900 text-slate-100 p-4 md:p-8 font-sans">
       <div className="max-w-3xl mx-auto">
-        <header className="mb-12 text-center">
-          <h1 className="text-4xl font-extrabold text-blue-400 mb-2">
+        {/* Header Section */}
+        <header className="mb-12 text-center animate-in fade-in duration-700">
+          <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 mb-3">
             GameScout AI
           </h1>
-          <p className="text-slate-400 text-lg">
-            Tell me what you like, and I will find your next game!
+          <p className="text-slate-400 text-lg italic">
+            &quot;Just tell me what you&apos;re looking for!&quot;
           </p>
         </header>
 
-        <form onSubmit={getRecommendations} className="mb-12 flex gap-4">
+        {/* Search Bar */}
+        <form
+          onSubmit={getRecommendations}
+          className="mb-12 flex flex-col md:flex-row gap-3"
+        >
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="e.g. I love Elden Ring but want something cozy..."
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-blue-500 transition"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-5 py-4 outline-none focus:ring-2 focus:ring-blue-500 transition shadow-inner"
             required
           />
           <button
             type="submit"
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 px-6 py-3 rounded-lg font-bold transition whitespace-nowrap"
+            className="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 px-8 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 active:scale-95 cursor-pointer"
           >
-            {loading ? "Searching..." : "Find Games"}
+            {loading ? "Analyzing..." : "Find Games"}
           </button>
         </form>
 
-{loading ? (
-  <div className="flex flex-col items-center justify-center py-20 animate-pulse">
-    {/* Large custom spinner */}
-    <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-4" />
-    <p className="text-blue-400 font-medium tracking-wide">Searching...</p>
-  </div>
-) : recommendations.length === 0 ? (
-  <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-2xl">
-    <p className="text-slate-500">The Scout is waiting for your preferences...</p>
-  </div>
-) : (
-  <div className="grid gap-6">
-    {/* Your recommendations.map code goes here */}
-  </div>
-)}
-        <div className="grid gap-6">
-          {recommendations.map((game, index) => (
-            <div
-              key={index}
-              className="bg-slate-800 border border-slate-700 p-6 rounded-xl hover:border-blue-500/50 transition group flex flex-col justify-between"
-            >
-              <div>
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition">
-                    {game.title}
-                  </h3>
-                  <span className="bg-blue-900/50 text-blue-300 text-xs px-2 py-1 rounded uppercase font-bold tracking-widest">
-                    {game.genre}
-                  </span>
-                </div>
-                <p className="text-slate-400 mb-4">{game.description}</p>
-
-                {/* Vibe Bar */}
-                <div className="flex items-center gap-2 mb-6">
-                  <div className="h-2 flex-1 bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-blue-500 transition-all duration-1000"
-                      style={{ width: `${game.vibeScore * 10}%` }}
-                    />
-                  </div>
-                  <span className="text-xs font-mono text-slate-500">
-                    {game.vibeScore}/10
-                  </span>
-                </div>
-              </div>
-
-              {/* NEW: View on Steam Button */}
-              <a
-                href={`https://store.steampowered.com/search/?term=${encodeURIComponent(game.title)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full bg-slate-700 hover:bg-slate-600 text-white text-center py-2 rounded-lg font-semibold transition flex items-center justify-center gap-2"
-              >
-                <span>View on Steam</span>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </a>
+        {/* Content Area */}
+        <div className="space-y-6">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20">
+              <div className="w-16 h-16 border-4 border-blue-500/10 border-t-blue-500 rounded-full animate-spin mb-6" />
+              <p className="text-blue-400 font-medium animate-pulse">
+                Consulting the digital archives...
+              </p>
             </div>
-          ))}
+          ) : recommendations.length === 0 ? (
+            <div className="text-center py-20 border-2 border-dashed border-slate-800 rounded-3xl animate-in fade-in zoom-in duration-500">
+              <p className="text-slate-500 text-lg">
+                No games found. Start by entering a preference above!
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6">
+              {recommendations.map((game, index) => (
+                <div
+                  key={index}
+                  style={{
+                    animationDelay: `${index * 200}ms`,
+                  }}
+                  className="animate-card bg-slate-800/50 backdrop-blur-sm border border-slate-700 p-6 rounded-2xl hover:border-blue-500/50 transition-all group flex flex-col justify-between"
+                >
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <h3 className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
+                        {game.title}
+                      </h3>
+                      <p className="text-blue-400 text-sm font-medium uppercase tracking-wider">
+                        {game.genre}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <span className="block text-2xl font-black text-slate-700 group-hover:text-blue-500/20 transition-colors select-none">
+                        0{index + 1}
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-slate-300 leading-relaxed mb-6">
+                    {game.description}
+                  </p>
+
+                  {/* Vibe Meter */}
+                  <div className="space-y-2 mb-6">
+                    <div className="flex justify-between text-xs font-bold text-slate-500 uppercase tracking-tighter">
+                      <span>Match Vibe</span>
+                      <span>{game.vibeScore * 10}%</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-[1500ms] delay-500"
+                        style={{ width: `${game.vibeScore * 10}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Specialist Reasoning */}
+                  <div className="mb-6 p-4 bg-blue-500/5 border-l-4 border-blue-500 rounded-r-xl">
+                    <p className="text-xs font-black text-blue-400 uppercase mb-1">
+                      Scout&apos;s Note
+                    </p>
+                    <p className="text-sm text-slate-300 italic leading-snug">
+                      {game.whyForYou}
+                    </p>
+                  </div>
+
+                  <a
+                    href={`https://store.steampowered.com/search/?term=${encodeURIComponent(game.title)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full py-3 bg-slate-700 hover:bg-blue-600 text-white rounded-xl font-bold transition-all group/btn active:scale-[0.98]"
+                  >
+                    View on Steam
+                    <svg
+                      className="w-4 h-4 group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                      />
+                    </svg>
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </main>
