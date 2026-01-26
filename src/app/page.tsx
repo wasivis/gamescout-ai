@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
 interface GameRec {
@@ -194,6 +193,24 @@ export default function GameBot() {
             </div>
           )}
         </div>
+      </div>
+      <div className="mt-20 flex flex-col items-center gap-4 pb-10 border-t border-slate-800 pt-10">
+        <p className="text-slate-500 text-sm font-medium">
+          Found a great game? Consider supporting the scout!
+        </p>
+        <a
+          href="https://ko-fi.com/wasivis"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="hover:scale-105 transition-transform duration-200"
+        >
+          <img
+            height="36"
+            style={{ border: "0px", height: "36px" }}
+            src="https://storage.ko-fi.com/cdn/kofi6.png?v=6"
+            alt="Buy Me a Coffee at ko-fi.com"
+          />
+        </a>
       </div>
     </main>
   );
