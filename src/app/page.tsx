@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import Groq from "groq-sdk";
 
 interface GameRec {
   title: string;
@@ -18,38 +19,46 @@ export default function GameBot() {
   const getRecommendations = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    // Clear old results so the new ones can animate in fresh
-    setRecommendations([]);
+    setRecommendations([]); // Clear old cards to trigger the re-animation
 
     try {
-      const genAI = new GoogleGenerativeAI(
-        process.env.NEXT_PUBLIC_GEMINI_API_KEY || "",
-      );
-      const model = genAI.getGenerativeModel({
-        model: "gemini-3-flash-preview",
-        generationConfig: {
-          responseMimeType: "application/json",
-        },
+      const groq = new Groq({
+        apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
+        dangerouslyAllowBrowser: true, // Required for client-side calls
       });
 
       const prompt = `
-        User Input: "${input}"
-        Suggest exactly 5 video games. For each, provide:
-        1. "title"
-        2. "genre"
-        3. "description" (Short summary)
-        4. "vibeScore" (1-10)
-        5. "whyForYou" (Personalized sentence explaining why this matches "${input}")
-        Return ONLY a JSON array.
-      `;
+      User Input: "${input}"
+      Suggest exactly 5 video games. 
+      Return a JSON object where the key is "games" and the value is an array of objects.
+      Each object must have: "title", "genre", "description", "vibeScore", and "whyForYou".
+    `;
 
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      const data = JSON.parse(text);
-      setRecommendations(data);
+      const chatCompletion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a professional Game Scout. You only output valid JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        model: "llama-3.3-70b-versatile",
+        response_format: { type: "json_object" },
+      });
+
+      const rawResponse = chatCompletion.choices[0]?.message?.content || "{}";
+      const data = JSON.parse(rawResponse);
+
+      // Groq's json_object mode usually requires a root key like "games"
+      const gamesArray = data.games || data;
+      setRecommendations(gamesArray);
     } catch (error) {
-      console.error("Error:", error);
-      alert("The Scout is offline. Check your console!");
+      console.error("Groq Error:", error);
+      alert("The backup Scout is also resting. Check your Groq quota!");
     } finally {
       setLoading(false);
     }
