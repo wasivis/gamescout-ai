@@ -18,46 +18,30 @@ export default function GameBot() {
   const getRecommendations = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setRecommendations([]); // Clear old cards to trigger the re-animation
+    setRecommendations([]);
 
     try {
-      const groq = new Groq({
-        apiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY,
-        dangerouslyAllowBrowser: true, // Required for client-side calls
+      // We fetch from our internal API route instead of Groq directly
+      const response = await fetch("/api/recommend", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ input }), // Pass the user input to the server
       });
 
-      const prompt = `
-      User Input: "${input}"
-      Suggest exactly 5 video games. 
-      Return a JSON object where the key is "games" and the value is an array of objects.
-      Each object must have: "title", "genre", "description", "vibeScore", and "whyForYou".
-    `;
+      if (!response.ok) {
+        throw new Error("Server responded with an error");
+      }
 
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a professional Game Scout. You only output valid JSON.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        model: "llama-3.3-70b-versatile",
-        response_format: { type: "json_object" },
-      });
+      const data = await response.json();
 
-      const rawResponse = chatCompletion.choices[0]?.message?.content || "{}";
-      const data = JSON.parse(rawResponse);
-
-      // Groq's json_object mode usually requires a root key like "games"
+      // The server already parsed the JSON for us
       const gamesArray = data.games || data;
       setRecommendations(gamesArray);
     } catch (error) {
-      console.error("Groq Error:", error);
-      alert("The backup Scout is also resting. Check your Groq quota!");
+      console.error("Fetch Error:", error);
+      alert("The backup Scout is also resting. Check your connection!");
     } finally {
       setLoading(false);
     }
