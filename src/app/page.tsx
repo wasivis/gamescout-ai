@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Groq from "groq-sdk";
 
 interface GameRec {
   title: string;
